@@ -1,3 +1,5 @@
+"""HTTP routes for the robotics AI tutor backend."""
+
 import os
 import uvicorn
 import base64
@@ -23,6 +25,7 @@ nav_map: Dict[str, str] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Load navigation map on startup."""
     # Load navigation map (assuming backend is inside root)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     root_path = os.path.abspath(os.path.join(current_dir, ".."))
@@ -42,13 +45,20 @@ app.add_middleware(
 )
 
 class ChatRequest(BaseModel):
+    """Chat request model for AI tutor interactions."""
     session_id: str
     section_id: str
     message: str
     images: List[Dict[str, str]] = [] # list of {name: str, data: base64_str}
 
-@app.post("/chat")
+@app.post("/chat", description="""
+Process a chat message and return an AI-generated response.
+
+This endpoint handles student questions about robotics textbook content,
+providing context-aware answers based on the current section and conversation history.
+""")
 async def chat_endpoint(request: ChatRequest):
+    """Process chat messages and return AI responses."""
     # 1. Get filepath for section
     # Try exact match first
     file_path = nav_map.get(request.section_id)
