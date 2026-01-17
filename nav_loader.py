@@ -1,8 +1,9 @@
 import os
 import csv
 import io
+from typing import Dict
 
-def load_navigation_map(root_path: str) -> dict:
+def load_navigation_map(root_path: str) -> Dict[str, str]:
     """
     Reads navigation.js from the root_path and parses the CSV content.
     Returns a dictionary mapping section number (e.g., "2.1") to the absolute file path.
@@ -25,7 +26,7 @@ def load_navigation_map(root_path: str) -> dict:
     if content.endswith("`"):
         content = content[:-1]
 
-    nav_map = {}
+    nav_map: Dict[str, str] = {}
     f_csv = io.StringIO(content.strip())
     reader = csv.DictReader(f_csv)
     

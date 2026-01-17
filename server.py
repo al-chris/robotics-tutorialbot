@@ -1,18 +1,38 @@
 import os
 import uvicorn
 import base64
+from contextlib import asynccontextmanager
 from google import genai
 from google.genai import types
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Tuple
 
 # Import local modules
 import parser
 import nav_loader
 
-app = FastAPI()
+# Initialize Gemini
+# Uses GEIMINI_API_KEY environment variable
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))  # type: ignore
+
+# State
+SESSIONS: Dict[str, List[Tuple[str, str]]] = {}
+nav_map: Dict[str, str] = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load navigation map (assuming backend is inside root)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    root_path = os.path.abspath(os.path.join(current_dir, ".."))
+    
+    global nav_map
+    nav_map = nav_loader.load_navigation_map(root_path)
+    print(f"Loading navigation map... Found {len(nav_map)} sections.")
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,24 +40,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize Gemini
-# Uses GEIMINI_API_KEY environment variable
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-
-# State
-SESSIONS = {} 
-NAV_MAP = {}
-
-@app.on_event("startup")
-async def startup_event():
-    # Load navigation map (assuming backend is inside root)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    root_path = os.path.abspath(os.path.join(current_dir, ".."))
-    
-    global NAV_MAP
-    NAV_MAP = nav_loader.load_navigation_map(root_path)
-    print(f"Loading navigation map... Found {len(NAV_MAP)} sections.")
 
 class ChatRequest(BaseModel):
     session_id: str
@@ -49,14 +51,14 @@ class ChatRequest(BaseModel):
 async def chat_endpoint(request: ChatRequest):
     # 1. Get filepath for section
     # Try exact match first
-    file_path = NAV_MAP.get(request.section_id)
+    file_path = nav_map.get(request.section_id)
     
     if not file_path:
         # Try simplified matching (e.g. if request is 2.12.1 but map has 2.12.1a)
         # or partial match
-        print(f"Direct match failed for section '{request.section_id}'. Available keys sample: {list(NAV_MAP.keys())[:5]}")
+        print(f"Direct match failed for section '{request.section_id}'. Available keys sample: {list(nav_map.keys())[:5]}")
         # Very simple heuristic fallback
-        for k, v in NAV_MAP.items():
+        for k, v in nav_map.items():
             if k == request.section_id or k.startswith(request.section_id):
                 file_path = v
                 break
@@ -118,11 +120,11 @@ async def chat_endpoint(request: ChatRequest):
 
     # 4. Generate
     try:
-        response = client.models.generate_content(
+        response = client.models.generate_content(  # type: ignore
             model='gemini-1.5-flash',
             contents=[types.Content(parts=parts)]
         )
-        reply_text = response.text
+        reply_text = response.text if response.text is not None else "No response from AI."
     except Exception as e:
         print(f"Gemini Error: {e}")
         reply_text = "I'm having trouble connecting to the AI model right now. Please check the server logs."

@@ -1,7 +1,8 @@
 from bs4 import BeautifulSoup
 import re
+from typing import List, Dict, cast
 
-def parse_textbook_content(html_content):
+def parse_textbook_content(html_content: str) -> str:
     """
     Parses raw textbook HTML (with Katex math) into a structured, readable text format.
     """
@@ -49,13 +50,13 @@ def parse_textbook_content(html_content):
         section_info = f"{chapter_num}.{section_num} — {title}"
 
     # B. Figures
-    figures = []
+    figures: List[Dict[str, str]] = []
     # Find figure containers
     for fig in soup.find_all(class_='figure-container'):
         img = fig.find('img')
         caption = fig.find(class_='figure-caption')
         
-        src = img.get('src', '') if img else "No Source"
+        src = cast(str, (img.get('src') or '')) if img else "No Source"
         caption_text = caption.get_text(strip=True) if caption else "No Caption"
         
         # Clean up relative paths for readability
@@ -69,12 +70,12 @@ def parse_textbook_content(html_content):
         fig.decompose()
 
     # C. Main Text & Expandable Sections
-    content_blocks = []
+    content_blocks: List[str] = []
     
     # We loop through specific content containers to maintain order
     # Targeting p, div.equation-block, and div.expandable-section
     for element in soup.find_all(['p', 'div']):
-        classes = element.get('class', [])
+        classes = cast(List[str], element.get('class') or [])
         
         # skip if it was a figure or nav we already deleted/processed
         if element.parent is None: 
@@ -107,7 +108,7 @@ def parse_textbook_content(html_content):
 
     # --- 3. FORMAT OUTPUT ---
 
-    output = []
+    output: List[str] = []
     
     # Header
     output.append("[STUDENT LOCATION]")
