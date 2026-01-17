@@ -1,6 +1,8 @@
 import os
 import uvicorn
-import google.generativeai as genai
+import base64
+from google import genai
+from google.genai import types
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -21,8 +23,7 @@ app.add_middleware(
 
 # Initialize Gemini
 # Uses GEIMINI_API_KEY environment variable
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # State
 SESSIONS = {} 
@@ -94,7 +95,7 @@ async def chat_endpoint(request: ChatRequest):
     )
     
     # Prepare contents list (Text + Images)
-    contents = [full_prompt_text]
+    parts = [types.Part(text=full_prompt_text)]
     
     # Add Binary Images
     for img in request.images:
@@ -105,16 +106,22 @@ async def chat_endpoint(request: ChatRequest):
             mime = "image/jpeg"
             
         try:
-            contents.append({
-                "mime_type": mime,
-                "data": img["data"]
-            })
+            image_bytes = base64.b64decode(img["data"])
+            parts.append(types.Part(
+                inline_data=types.Blob(
+                    mime_type=mime,
+                    data=image_bytes
+                )
+            ))
         except Exception as e:
             print(f"Skipping invalid image {name_lower}: {e}")
 
     # 4. Generate
     try:
-        response = model.generate_content(contents=contents)
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=[types.Content(parts=parts)]
+        )
         reply_text = response.text
     except Exception as e:
         print(f"Gemini Error: {e}")
