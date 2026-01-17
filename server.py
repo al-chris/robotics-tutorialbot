@@ -47,7 +47,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     """Chat request model for AI tutor interactions."""
     session_id: str
-    section_id: str
+    context: str
     message: str
     images: List[Dict[str, str]] = [] # list of {name: str, data: base64_str}
 
@@ -59,32 +59,12 @@ providing context-aware answers based on the current section and conversation hi
 """)
 async def chat_endpoint(request: ChatRequest):
     """Process chat messages and return AI responses."""
-    # 1. Get filepath for section
-    # Try exact match first
-    file_path = nav_map.get(request.section_id)
-    
-    if not file_path:
-        # Try simplified matching (e.g. if request is 2.12.1 but map has 2.12.1a)
-        # or partial match
-        print(f"Direct match failed for section '{request.section_id}'. Available keys sample: {list(nav_map.keys())[:5]}")
-        # Very simple heuristic fallback
-        for k, v in nav_map.items():
-            if k == request.section_id or k.startswith(request.section_id):
-                file_path = v
-                break
-
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail=f"Section {request.section_id} content not found.")
-
-    # 2. Parse Text Context
+    # 1. Parse HTML Context directly from request
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            html_content = f.read()
-        parsed_text = parser.parse_textbook_content(html_content)
+        parsed_text = parser.parse_textbook_content(request.context)
     except Exception as e:
-        print(f"Error parsing file {file_path}: {e}")
-        # Continue with empty context rather than crashing? No, fail early for debugging.
-        raise HTTPException(status_code=500, detail="Failed to parse section content.")
+        print(f"Error parsing HTML context: {e}")
+        raise HTTPException(status_code=500, detail="Failed to parse HTML content.")
 
     # 3. Setup Gemini Content
     system_prompt = (
