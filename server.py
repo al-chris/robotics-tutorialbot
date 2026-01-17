@@ -121,7 +121,7 @@ async def chat_endpoint(request: ChatRequest):
     # 4. Generate
     try:
         response = client.models.generate_content(  # type: ignore
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=[types.Content(parts=parts)]
         )
         reply_text = response.text if response.text is not None else "No response from AI."
