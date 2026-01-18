@@ -9,14 +9,22 @@ from google import genai
 from google.genai import types
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse, Response
 from pydantic import BaseModel
-from typing import List, Dict, Tuple, Any
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from typing import List, Dict, Tuple, Any, cast
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # Import local modules
 import parser
+
+def _rate_limit_exceeded_handler(request: Request, exc: Exception) -> Response:
+    """Build a simple JSON response that includes the details of the rate limit that was hit."""
+    rate_exc = cast(RateLimitExceeded, exc)
+    response = JSONResponse({"error": f"Rate limit exceeded: {rate_exc.detail}"}, status_code=429)
+    response = request.app.state.limiter._inject_headers(response, request.state.view_rate_limit)
+    return response
 
 # Initialize Gemini
 # Uses GEIMINI_API_KEY environment variable
