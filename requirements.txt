@@ -4,4 +4,4 @@ python-multipart
 google-genai
 beautifulsoup4
 pydantic
-python-dotenv
+python-dotenvslowapi
