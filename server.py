@@ -1,6 +1,7 @@
 """HTTP routes for the robotics AI tutor backend."""
 
 import os
+import uuid
 import uvicorn
 import base64
 from contextlib import asynccontextmanager
@@ -37,7 +38,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     """Chat request model for AI tutor interactions."""
-    session_id: str
+    session_id: uuid.UUID
     context: str
     message: str
     images: List[Dict[str, str]] = [] # list of {name: str, data: base64_str}
@@ -51,7 +52,7 @@ providing context-aware answers based on the current section and conversation hi
 Example request:
 ```
 {\n
-"session_id": "session_123",\n
+"session_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",\n
 "context": "<body><h1>Introduction to Robotics</h1><p>Robotics is...</p></body",\n
 "message": "What is the definition of robotics?",\n
 "images": []\n
@@ -84,7 +85,7 @@ async def chat_endpoint(request: ChatRequest):
     )
     
     # Prepare history
-    history_list = SESSIONS.get(request.session_id, [])
+    history_list = SESSIONS.get(str(request.session_id), [])
     history_text = "___CONVERSATION HISTORY___\n"
     for role, msg in history_list:
         history_text += f"{role}: {msg}\n"
@@ -130,16 +131,16 @@ async def chat_endpoint(request: ChatRequest):
         reply_text = "I'm having trouble connecting to the AI model right now. Please check the server logs."
 
     # 5. Save History
-    if request.session_id not in SESSIONS: 
-        SESSIONS[request.session_id] = []
+    if str(request.session_id) not in SESSIONS: 
+        SESSIONS[str(request.session_id)] = []
     
     # Append
-    SESSIONS[request.session_id].append(("Student", request.message))
-    SESSIONS[request.session_id].append(("Tutor", reply_text))
+    SESSIONS[str(request.session_id)].append(("Student", request.message))
+    SESSIONS[str(request.session_id)].append(("Tutor", reply_text))
     
     # Limit History (Optional, keep last 10 turns)
-    if len(SESSIONS[request.session_id]) > 20: 
-        SESSIONS[request.session_id] = SESSIONS[request.session_id][-20:]
+    if len(SESSIONS[str(request.session_id)]) > 20: 
+        SESSIONS[str(request.session_id)] = SESSIONS[str(request.session_id)][-20:]
     
     return {"reply": reply_text}
 
