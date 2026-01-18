@@ -10,13 +10,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Tuple
-from dotenv import load_dotenv
 
 # Import local modules
 import parser
 import nav_loader
-
-load_dotenv()
 
 # Initialize Gemini
 # Uses GEIMINI_API_KEY environment variable
