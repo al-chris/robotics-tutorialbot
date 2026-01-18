@@ -13,7 +13,6 @@ from typing import List, Dict, Tuple
 
 # Import local modules
 import parser
-import nav_loader
 
 # Initialize Gemini
 # Uses GEIMINI_API_KEY environment variable
@@ -21,18 +20,10 @@ client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # State
 SESSIONS: Dict[str, List[Tuple[str, str]]] = {}
-nav_map: Dict[str, str] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load navigation map on startup."""
-    # Load navigation map (assuming backend is inside root)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    root_path = os.path.abspath(os.path.join(current_dir, ".."))
-    
-    global nav_map
-    nav_map = nav_loader.load_navigation_map(root_path)
-    print(f"Loading navigation map... Found {len(nav_map)} sections.")
+    """Startup."""
     yield
 
 app = FastAPI(lifespan=lifespan)
