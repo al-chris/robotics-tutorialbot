@@ -7,10 +7,13 @@ import base64
 from contextlib import asynccontextmanager
 from google import genai
 from google.genai import types
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Tuple, Any
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Import local modules
 import parser
@@ -18,6 +21,9 @@ import parser
 # Initialize Gemini
 # Uses GEIMINI_API_KEY environment variable
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+
+# Initialize Limiter
+limiter = Limiter(key_func=get_remote_address)
 
 # State
 SESSIONS: Dict[str, List[Tuple[str, str]]] = {}
@@ -28,6 +34,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,11 +67,12 @@ Example request:
 }
 ```
 """)
-async def chat_endpoint(request: ChatRequest):
+@limiter.limit("5/minute") # type: ignore
+async def chat_endpoint(request: Request, chat_req: ChatRequest):
     """Process chat messages and return AI responses."""
     # 1. Parse HTML Context directly from request
     try:
-        parsed_text = parser.parse_textbook_content(request.context)
+        parsed_text = parser.parse_textbook_content(chat_req.context)
     except Exception as e:
         print(f"Error parsing HTML context: {e}")
         raise HTTPException(status_code=500, detail="Failed to parse HTML content.")
@@ -86,7 +95,7 @@ async def chat_endpoint(request: ChatRequest):
     )
     
     # Prepare history
-    history_list = SESSIONS.get(str(request.session_id), [])
+    history_list = SESSIONS.get(str(chat_req.session_id), [])
     history_text = "___CONVERSATION HISTORY___\n"
     for role, msg in history_list:
         history_text += f"{role}: {msg}\n"
@@ -95,14 +104,14 @@ async def chat_endpoint(request: ChatRequest):
         f"{system_prompt}\n\n"
         f"___SECTION CONTEXT___\n{parsed_text}\n\n"
         f"{history_text}\n"
-        f"Student Question: {request.message}"
+        f"Student Question: {chat_req.message}"
     )
     
     # Prepare contents list (Text + Images)
     parts = [types.Part(text=full_prompt_text)]
     
     # Add Binary Images
-    for img in request.images:
+    for img in chat_req.images:
         # Determine mime type
         mime = "image/png"
         name_lower = img.get("name", "").lower()
@@ -132,16 +141,16 @@ async def chat_endpoint(request: ChatRequest):
         reply_text = "I'm having trouble connecting to the AI model right now. Please check the server logs."
 
     # 5. Save History
-    if str(request.session_id) not in SESSIONS: 
-        SESSIONS[str(request.session_id)] = []
+    if str(chat_req.session_id) not in SESSIONS: 
+        SESSIONS[str(chat_req.session_id)] = []
     
     # Append
-    SESSIONS[str(request.session_id)].append(("Student", request.message))
-    SESSIONS[str(request.session_id)].append(("Tutor", reply_text))
+    SESSIONS[str(chat_req.session_id)].append(("Student", chat_req.message))
+    SESSIONS[str(chat_req.session_id)].append(("Tutor", reply_text))
     
     # Limit History (Optional, keep last 10 turns)
-    if len(SESSIONS[str(request.session_id)]) > 20: 
-        SESSIONS[str(request.session_id)] = SESSIONS[str(request.session_id)][-20:]
+    if len(SESSIONS[str(chat_req.session_id)]) > 20: 
+        SESSIONS[str(chat_req.session_id)] = SESSIONS[str(chat_req.session_id)][-20:]
     
     return {"reply": reply_text}
 
