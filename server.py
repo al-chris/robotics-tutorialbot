@@ -49,12 +49,14 @@ This endpoint handles student questions about robotics textbook content,
 providing context-aware answers based on the current section and conversation history.
 
 Example request:
-{
-  "session_id": "session_123",
-  "context": "<html><body><h1>Introduction to Robotics</h1><p>Robotics is...</p></body></html>",
-  "message": "What is the definition of robotics?",
-  "images": []
+```
+{\n
+"session_id": "session_123",\n
+"context": "<body><h1>Introduction to Robotics</h1><p>Robotics is...</p></body",\n
+"message": "What is the definition of robotics?",\n
+"images": []\n
 }
+```
 """)
 async def chat_endpoint(request: ChatRequest):
     """Process chat messages and return AI responses."""
