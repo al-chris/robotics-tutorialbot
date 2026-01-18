@@ -47,6 +47,14 @@ Process a chat message and return an AI-generated response.
 
 This endpoint handles student questions about robotics textbook content,
 providing context-aware answers based on the current section and conversation history.
+
+Example request:
+{
+  "session_id": "session_123",
+  "context": "<html><body><h1>Introduction to Robotics</h1><p>Robotics is...</p></body></html>",
+  "message": "What is the definition of robotics?",
+  "images": []
+}
 """)
 async def chat_endpoint(request: ChatRequest):
     """Process chat messages and return AI responses."""
