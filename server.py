@@ -6,10 +6,10 @@ import base64
 from contextlib import asynccontextmanager
 from google import genai
 from google.genai import types
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 
 # Import local modules
 import parser
@@ -140,6 +140,26 @@ async def chat_endpoint(request: ChatRequest):
         SESSIONS[request.session_id] = SESSIONS[request.session_id][-20:]
     
     return {"reply": reply_text}
+
+@app.get("/session/{session_id}")
+async def get_session(session_id: str) -> Dict[str, Any]:
+    if session_id not in SESSIONS:
+        raise HTTPException(status_code=404, detail="Session not found")
+    history = SESSIONS[session_id]
+    history_dicts = [{"role": role, "message": msg} for role, msg in history]
+    return {"session_id": session_id, "history": history_dicts}
+
+@app.get("/sessions")
+async def list_sessions(offset: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=100)) -> Dict[str, Any]:
+    session_ids = list(SESSIONS.keys())
+    total = len(session_ids)
+    paginated = session_ids[offset:offset + limit]
+    return {
+        "total": total,
+        "sessions": paginated,
+        "offset": offset,
+        "limit": limit
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8152)
