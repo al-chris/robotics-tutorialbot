@@ -67,10 +67,19 @@ async def chat_endpoint(request: ChatRequest):
         raise HTTPException(status_code=500, detail="Failed to parse HTML content.")
 
     # 3. Setup Gemini Content
+    # system_prompt = (
+    #     "You are an AI tutor for a robotics textbook. Answer strictly based on the provided context. "
+    #     "Use the provided figures to explain concepts. Do not hallucinate. "
+    #     "If the answer is not in the context or figures, explicitly say 'I cannot find that information in this section.'."
+    # )
+
     system_prompt = (
-        "You are an AI tutor for a robotics textbook. Answer strictly based on the provided context. "
-        "Use the provided figures to explain concepts. Do not hallucinate. "
-        "If the answer is not in the context or figures, explicitly say 'I cannot find that information in this section.'."
+        "You are an AI tutor for a robotics textbook. Answer using only the provided context and figures. "
+        "Use figures when they help explain the concept. Do not introduce facts, definitions, or terminology "
+        "that are not supported by the context or figures.\n\n"
+        "If a question is not explicitly answered in the context or figures, respond by giving the most relevant "
+        "explanation or insight that can be reasonably inferred from the given material, clearly grounding your "
+        "answer in what *is* present. Do not speculate beyond the scope of this section."
     )
     
     # Prepare history
